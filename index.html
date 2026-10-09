@@ -56,11 +56,9 @@
   </style>
 </head>
 <body>
-
   <h2>Direk Ölçüm — Sesli Deneme</h2>
   <p>
-    Ölçümleri tek seferde veya parça parça söyle.
-    Kaydetmeden önce alanları kontrol et.
+    Ölçümleri tek seferde veya parça parça söyle. Kaydetmeden önce alanları kontrol et.
   </p>
 
   <button type="button" id="mikrofon">🎤 Konuşmaya Başla</button>
@@ -84,9 +82,7 @@
   <label for="konusma">Tanınan konuşma</label>
   <textarea id="konusma" rows="5"></textarea>
 
-  <div id="durum" role="status" aria-live="polite">
-    Sayfa hazır.
-  </div>
+  <div id="durum" role="status" aria-live="polite">Sayfa hazır.</div>
 
 <script>
 (function () {
@@ -110,6 +106,9 @@
     }
   }
 
+  /*
+   * DEZEKSMAN kelimesinin farklı tanınma biçimlerini düzeltir.
+   */
   function dezeksmanDuzelt(metin) {
     let t = metin;
 
@@ -149,6 +148,9 @@
     return t.replace(/\s+/g, ' ').trim();
   }
 
+  /*
+   * Bir alanın değerini sonraki alan etiketine kadar alır.
+   */
   function sonrakiEtiketeKadar(metin, baslangic) {
     const kalan = metin.slice(baslangic);
 
@@ -157,11 +159,12 @@
 
     const m = etiket.exec(kalan);
 
-    return m
-      ? kalan.slice(0, m.index).trim()
-      : kalan.trim();
+    return m ? kalan.slice(0, m.index).trim() : kalan.trim();
   }
 
+  /*
+   * Direk numarası: 245-6, 245.6, 245 tire 6.
+   */
   function direkNumarasiniBul(metin) {
     const t = metniNormalizeEt(metin);
     const etiket = /\bdirek\s*(?:no|numarası|numara)?\s*/gi;
@@ -195,8 +198,7 @@
   }
 
   /*
-   * Pozitif ve negatif ondalıklı sayıları okur.
-   * Örnekler:
+   * Pozitif ve negatif ondalıklı sayıları okur:
    * -23,1
    * -23.1
    * eksi 23 virgül 1
@@ -212,7 +214,7 @@
       .replace(/\bnegatif\b/g, ' - ')
       .replace(/\bartı\b|\barti\b|\bpozitif\b/g, ' + ');
 
-    // -20.5, -20,5, 20.5 veya 20,5
+    // Ondalıklı sayılar: -20.5, -20,5, 20.5, 20,5
     let m = t.match(
       /(^|[^\d])([+-]?)\s*(\d+)\s*([.,])\s*(\d+)\b/
     );
@@ -221,8 +223,7 @@
       return (m[2] || '') + m[3] + ',' + m[5];
     }
 
-    // Eksi/arti işaretiyle söylenen ondalıklı sayı
-    // Örnek: eksi 20 virgül 5
+    // Söylenen ondalık ayıracı: eksi 20 virgül 5
     m = t.match(
       /(^|[^\d])([+-]?)\s*(\d+)\s+(?:virgül|nokta)\s+(\d+)\b/i
     );
@@ -231,7 +232,7 @@
       return (m[2] || '') + m[3] + ',' + m[4];
     }
 
-    // Örnek: 5 35, -5 35 veya 20 05
+    // Boşlukla söylenen sayı: 5 35, -5 35, 20 05
     m = t.match(
       /(^|[^\d])([+-]?)\s*(\d{1,2})\s+(\d{2,3})\b/
     );
@@ -240,7 +241,7 @@
       return (m[2] || '') + m[3] + ',' + m[4];
     }
 
-    // Örnek: 5 3 5 veya -5 3 5
+    // Üç parçalı sayı: 5 3 5 veya -5 3 5
     m = t.match(
       /(^|[^\d])([+-]?)\s*(\d)\s+(\d)\s+(\d)\b/
     );
@@ -249,7 +250,7 @@
       return (m[2] || '') + m[3] + ',' + m[4] + m[5];
     }
 
-    // İşaretli tam sayı: -20 veya +20
+    // İşaretli tam sayı: -23 veya +23
     m = t.match(/(^|[^\d])([+-])\s*(\d+)\b/);
 
     if (m) {
@@ -270,19 +271,11 @@
 
     while ((eslesme = etiket.exec(metin)) !== null) {
       const baslangic = eslesme.index + eslesme[0].length;
+      const bolum = sonrakiEtiketeKadar(metin, baslangic);
 
-      const bolum = sonrakiEtiketeKadar(
-        metin,
-        baslangic
-      );
-
-      let deger = null;
-
-      if (sayisalMi) {
-        deger = ondalikliDegeriBul(bolum);
-      } else {
-        deger = bolum;
-      }
+      const deger = sayisalMi
+        ? ondalikliDegeriBul(bolum)
+        : bolum;
 
       if (deger !== null && deger !== '') {
         sonDeger = deger;
@@ -320,9 +313,9 @@
       );
 
       if (m) {
-        sonSicaklik = (
-          m[1] ? '-' : ''
-        ) + m[2].replace(/\s+/g, '').replace('.', ',');
+        sonSicaklik =
+          (m[1] ? '-' : '') +
+          m[2].replace(/\s+/g, '').replace('.', ',');
       }
     }
 
@@ -462,7 +455,6 @@
         metin = metin.trim();
 
         const duzeltilmisMetin = metniNormalizeEt(metin);
-
         el('konusma').value = duzeltilmisMetin;
 
         if (duzeltilmisMetin !== sonMetin) {
@@ -509,7 +501,6 @@
   mesaj('JavaScript çalışıyor. Mikrofon testine hazır.');
 })();
 </script>
-
 </body>
 </html>
 ```
