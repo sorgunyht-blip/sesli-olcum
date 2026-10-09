@@ -1,88 +1,110 @@
-```html
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Direk Ölçüm - Sesli Deneme</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: auto;
-      padding: 18px;
-      background: #f4f6f8;
-      color: #202124;
-    }
-    h2 { margin-top: 0; }
-    label {
-      display: block;
-      font-weight: bold;
-      margin: 14px 0 6px;
-    }
-    input, textarea, button {
-      width: 100%;
-      padding: 13px;
-      font-size: 16px;
-      border-radius: 8px;
-    }
-    input, textarea {
-      border: 1px solid #bbb;
-      background: white;
-    }
-    button {
-      border: 0;
-      cursor: pointer;
-      font-weight: bold;
-      margin-top: 12px;
-      min-height: 48px;
-    }
-    #mikrofon { background: #1769aa; color: white; }
-    #durdur { background: #ddd; color: #222; }
-    #durum {
-      padding: 12px;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      margin-top: 14px;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-    }
-    button:disabled {
-      opacity: .55;
-      cursor: not-allowed;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direk Ölçüm - Sesli Deneme</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  font-family: Arial, sans-serif;
+  max-width: 600px;
+  margin: auto;
+  padding: 18px;
+  background: #f4f6f8;
+  color: #202124;
+}
+
+h2 { margin-top: 0; }
+
+label {
+  display: block;
+  font-weight: bold;
+  margin: 14px 0 6px;
+}
+
+input, textarea, button {
+  width: 100%;
+  padding: 13px;
+  font-size: 16px;
+  border-radius: 8px;
+}
+
+input, textarea {
+  border: 1px solid #bbb;
+  background: white;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 12px;
+  min-height: 48px;
+}
+
+#mikrofon {
+  background: #1769aa;
+  color: white;
+}
+
+#durdur {
+  background: #ddd;
+  color: #222;
+}
+
+#durum {
+  padding: 12px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+</style>
 </head>
+
 <body>
-  <h2>Direk Ölçüm — Sesli Deneme</h2>
-  <p>
-    Ölçümleri tek seferde veya parça parça söyle. Kaydetmeden önce alanları kontrol et.
-  </p>
 
-  <button type="button" id="mikrofon">🎤 Konuşmaya Başla</button>
-  <button type="button" id="durdur" disabled>Konuşmayı Durdur</button>
+<h2>Direk Ölçüm — Sesli Deneme</h2>
 
-  <label for="direk">Direk No</label>
-  <input id="direk" placeholder="Örn. 205-290">
+<p>
+Ölçümleri tek seferde veya parça parça söyle.
+Kaydetmeden önce alanları kontrol et.
+</p>
 
-  <label for="sicaklik">Hava Sıcaklığı (°C)</label>
-  <input id="sicaklik" inputmode="decimal" placeholder="Örn. 17">
+<button type="button" id="mikrofon">🎤 Konuşmaya Başla</button>
+<button type="button" id="durdur" disabled>Konuşmayı Durdur</button>
 
-  <label for="yagis">Yağış Durumu</label>
-  <input id="yagis" placeholder="Örn. Yok">
+<label for="direk">Direk No</label>
+<input id="direk" placeholder="Örn. 205-290">
 
-  <label for="yukseklik">Yeni Yükseklik</label>
-  <input id="yukseklik" inputmode="decimal" placeholder="Örn. 5,45">
+<label for="sicaklik">Hava Sıcaklığı (°C)</label>
+<input id="sicaklik" inputmode="decimal" placeholder="Örn. 17">
 
-  <label for="dezeksman">DEZEKSMAN</label>
-  <input id="dezeksman" inputmode="decimal" placeholder="Örn. -20,5">
+<label for="yagis">Yağış Durumu</label>
+<input id="yagis" placeholder="Örn. Yok">
 
-  <label for="konusma">Tanınan konuşma</label>
-  <textarea id="konusma" rows="5"></textarea>
+<label for="yukseklik">Yeni Yükseklik</label>
+<input id="yukseklik" inputmode="decimal" placeholder="Örn. 5,45">
 
-  <div id="durum" role="status" aria-live="polite">Sayfa hazır.</div>
+<label for="dezeksman">DEZEKSMAN</label>
+<input id="dezeksman" inputmode="decimal" placeholder="Örn. 20,1">
+
+<label for="konusma">Tanınan konuşma</label>
+<textarea id="konusma" rows="5"></textarea>
+
+<div id="durum" role="status" aria-live="polite">
+Sayfa hazır.
+</div>
 
 <script>
 (function () {
@@ -96,8 +118,21 @@
   let oturumNo = 0;
   let sonMetin = '';
 
+  // Yeni özellik: kullanıcı durdurmadığı sürece yeniden dinle.
+  let kullaniciDurdurdu = true;
+  let yenidenBaslatZamanlayici = null;
+  let kaliciHata = false;
+  let yenidenBaslatDenemesi = false;
+
   function mesaj(yazi) {
     durum.textContent = yazi;
+  }
+
+  function zamanlayiciyiTemizle() {
+    if (yenidenBaslatZamanlayici !== null) {
+      clearTimeout(yenidenBaslatZamanlayici);
+      yenidenBaslatZamanlayici = null;
+    }
   }
 
   function alanDoldur(id, deger) {
@@ -107,7 +142,8 @@
   }
 
   /*
-   * DEZEKSMAN kelimesinin farklı tanınma biçimlerini düzeltir.
+   * DEZEKSMAN kelimesinin ses tanıma tarafından
+   * farklı biçimlerde yazılmasını düzeltir.
    */
   function dezeksmanDuzelt(metin) {
     let t = metin;
@@ -145,11 +181,14 @@
 
     t = dezeksmanDuzelt(t);
 
-    return t.replace(/\s+/g, ' ').trim();
+    return t
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /*
-   * Bir alanın değerini sonraki alan etiketine kadar alır.
+   * Etiketin başladığı yerden sonraki etiketin
+   * başladığı yere kadar olan bölümü alır.
    */
   function sonrakiEtiketeKadar(metin, baslangic) {
     const kalan = metin.slice(baslangic);
@@ -159,11 +198,14 @@
 
     const m = etiket.exec(kalan);
 
-    return m ? kalan.slice(0, m.index).trim() : kalan.trim();
+    return m
+      ? kalan.slice(0, m.index).trim()
+      : kalan.trim();
   }
 
   /*
-   * Direk numarası: 245-6, 245.6, 245 tire 6.
+   * Direk numarasını bulur.
+   * Örnek: 245-6, 245.6, 245 tire 6.
    */
   function direkNumarasiniBul(metin) {
     const t = metniNormalizeEt(metin);
@@ -198,66 +240,33 @@
   }
 
   /*
-   * Pozitif ve negatif ondalıklı sayıları okur:
-   * -23,1
-   * -23.1
-   * eksi 23 virgül 1
-   * negatif 23 nokta 1
-   * 23 virgül 1
-   * 5 35
-   * 5 3 5
+   * Ondalıklı sayıları bulur:
+   * 5.35, 5,35, 5 virgül 35, 5 nokta 35,
+   * 5 35 ve 5 3 5.
    */
   function ondalikliDegeriBul(metin) {
-    const t = metniNormalizeEt(metin)
-      .replace(/[−–—]/g, '-')
-      .replace(/\beksi\b/g, ' - ')
-      .replace(/\bnegatif\b/g, ' - ')
-      .replace(/\bartı\b|\barti\b|\bpozitif\b/g, ' + ');
+    const t = metniNormalizeEt(metin);
 
-    // Ondalıklı sayılar: -20.5, -20,5, 20.5, 20,5
     let m = t.match(
-      /(^|[^\d])([+-]?)\s*(\d+)\s*([.,])\s*(\d+)\b/
+      /\b(\d+)\s*(?:[.,]\s*(\d+)|(?:virgül|nokta)\s+(\d+))\b/i
     );
 
     if (m) {
-      return (m[2] || '') + m[3] + ',' + m[5];
+      return m[1] + ',' + (m[2] || m[3]);
     }
 
-    // Söylenen ondalık ayıracı: eksi 20 virgül 5
-    m = t.match(
-      /(^|[^\d])([+-]?)\s*(\d+)\s+(?:virgül|nokta)\s+(\d+)\b/i
-    );
+    m = t.match(/\b(\d{1,2})\s+(\d{2,3})\b/);
 
     if (m) {
-      return (m[2] || '') + m[3] + ',' + m[4];
+      return m[1] + ',' + m[2];
     }
 
-    // Boşlukla söylenen sayı: 5 35, -5 35, 20 05
-    m = t.match(
-      /(^|[^\d])([+-]?)\s*(\d{1,2})\s+(\d{2,3})\b/
-    );
+    m = t.match(/\b(\d)\s+(\d)\s+(\d)\b/);
 
     if (m) {
-      return (m[2] || '') + m[3] + ',' + m[4];
+      return m[1] + ',' + m[2] + m[3];
     }
 
-    // Üç parçalı sayı: 5 3 5 veya -5 3 5
-    m = t.match(
-      /(^|[^\d])([+-]?)\s*(\d)\s+(\d)\s+(\d)\b/
-    );
-
-    if (m) {
-      return (m[2] || '') + m[3] + ',' + m[4] + m[5];
-    }
-
-    // İşaretli tam sayı: -23 veya +23
-    m = t.match(/(^|[^\d])([+-])\s*(\d+)\b/);
-
-    if (m) {
-      return m[2] + m[3];
-    }
-
-    // İşaretsiz tam sayı
     m = t.match(/\b(\d+)\b/);
 
     return m ? m[1] : null;
@@ -271,11 +280,19 @@
 
     while ((eslesme = etiket.exec(metin)) !== null) {
       const baslangic = eslesme.index + eslesme[0].length;
-      const bolum = sonrakiEtiketeKadar(metin, baslangic);
 
-      const deger = sayisalMi
-        ? ondalikliDegeriBul(bolum)
-        : bolum;
+      const bolum = sonrakiEtiketeKadar(
+        metin,
+        baslangic
+      );
+
+      let deger = null;
+
+      if (sayisalMi) {
+        deger = ondalikliDegeriBul(bolum);
+      } else {
+        deger = bolum;
+      }
 
       if (deger !== null && deger !== '') {
         sonDeger = deger;
@@ -309,13 +326,12 @@
       );
 
       const m = bolum.match(
-        /^(eksi\s*)?([+-]?\s*\d+(?:[,.]\d+)?)(?:\s*(?:derece|santigrat))?/i
+        /^(eksi\s*)?(\d+(?:[,.]\d+)?)(?:\s*(?:derece|santigrat))?/i
       );
 
       if (m) {
         sonSicaklik =
-          (m[1] ? '-' : '') +
-          m[2].replace(/\s+/g, '').replace('.', ',');
+          (m[1] ? '-' : '') + m[2].replace('.', ',');
       }
     }
 
@@ -404,16 +420,76 @@
     }
   }
 
+  /*
+   * Oturum sırasında hata oluşursa mesajı gösterir.
+   * İzin ve mikrofon erişimi gibi kalıcı hatalarda
+   * otomatik yeniden başlatmayı durdurur.
+   */
+  function hataKaliciMi(hata) {
+    return [
+      'not-allowed',
+      'service-not-allowed',
+      'audio-capture'
+    ].includes(hata);
+  }
+
+  function otomatikYenidenDinle(buOturum) {
+    zamanlayiciyiTemizle();
+
+    if (
+      buOturum !== oturumNo ||
+      kullaniciDurdurdu ||
+      kaliciHata ||
+      !tanima
+    ) {
+      return;
+    }
+
+    yenidenBaslatZamanlayici = setTimeout(function () {
+      yenidenBaslatZamanlayici = null;
+
+      if (
+        buOturum !== oturumNo ||
+        kullaniciDurdurdu ||
+        kaliciHata ||
+        !tanima
+      ) {
+        return;
+      }
+
+      try {
+        yenidenBaslatDenemesi = true;
+        mesaj('Dinleme yeniden başlatılıyor...');
+        tanima.start();
+      } catch (hata) {
+        yenidenBaslatDenemesi = false;
+        dinleniyor = false;
+
+        /*
+         * Tarayıcı yeniden başlatmaya henüz hazır değilse
+         * kısa bir süre sonra tekrar dene.
+         */
+        otomatikYenidenDinle(buOturum);
+      }
+    }, 500);
+  }
+
   baslat.addEventListener('click', function () {
     if (dinleniyor) {
       mesaj('Mikrofon zaten açık.');
       return;
     }
 
+    zamanlayiciyiTemizle();
+
     el('konusma').value = '';
     sonMetin = '';
-    oturumNo++;
 
+    kullaniciDurdurdu = false;
+    kaliciHata = false;
+    yenidenBaslatDenemesi = false;
+
+    oturumNo++;
     const buOturum = oturumNo;
 
     const SpeechRecognition =
@@ -421,14 +497,18 @@
       window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
+      kullaniciDurdurdu = true;
+
       mesaj(
         'Bu tarayıcı sesli konuşma tanımayı desteklemiyor. Güncel Chrome ile deneyin.'
       );
+
       return;
     }
 
     try {
       tanima = new SpeechRecognition();
+
       tanima.lang = 'tr-TR';
       tanima.continuous = true;
       tanima.interimResults = true;
@@ -436,11 +516,15 @@
       tanima.onstart = function () {
         if (buOturum !== oturumNo) return;
 
+        yenidenBaslatDenemesi = false;
         dinleniyor = true;
+
         baslat.disabled = true;
         durdur.disabled = false;
 
-        mesaj('Mikrofon açık. Ölçümleri söyleyebilirsiniz.');
+        mesaj(
+          'Mikrofon açık. Ölçümleri söyleyebilirsiniz.'
+        );
       };
 
       tanima.onresult = function (event) {
@@ -454,7 +538,9 @@
 
         metin = metin.trim();
 
-        const duzeltilmisMetin = metniNormalizeEt(metin);
+        const duzeltilmisMetin =
+          metniNormalizeEt(metin);
+
         el('konusma').value = duzeltilmisMetin;
 
         if (duzeltilmisMetin !== sonMetin) {
@@ -469,14 +555,49 @@
         if (buOturum !== oturumNo) return;
 
         mesaj('MİKROFON HATASI: ' + event.error);
+
+        if (hataKaliciMi(event.error)) {
+          kaliciHata = true;
+          kullaniciDurdurdu = true;
+          zamanlayiciyiTemizle();
+
+          dinleniyor = false;
+          baslat.disabled = false;
+          durdur.disabled = true;
+        }
       };
 
       tanima.onend = function () {
         if (buOturum !== oturumNo) return;
 
         dinleniyor = false;
-        baslat.disabled = false;
-        durdur.disabled = true;
+
+        if (kullaniciDurdurdu || kaliciHata) {
+          zamanlayiciyiTemizle();
+
+          baslat.disabled = false;
+          durdur.disabled = true;
+
+          if (kullaniciDurdurdu) {
+            mesaj('Dinleme durduruldu.');
+          }
+
+          return;
+        }
+
+        /*
+         * Mobil tarayıcı kısa sessizlikten sonra
+         * tanımayı bitirirse otomatik yeniden başlat.
+         * Konuşma alanını ve ölçüm alanlarını temizleme.
+         */
+        baslat.disabled = true;
+        durdur.disabled = false;
+
+        mesaj(
+          'Kısa sessizlik algılandı. Dinleme otomatik yeniden başlatılacak...'
+        );
+
+        otomatikYenidenDinle(buOturum);
       };
 
       mesaj('Mikrofon başlatılıyor...');
@@ -484,6 +605,8 @@
 
     } catch (hata) {
       dinleniyor = false;
+      kullaniciDurdurdu = true;
+
       baslat.disabled = false;
       durdur.disabled = true;
 
@@ -492,15 +615,31 @@
   });
 
   durdur.addEventListener('click', function () {
-    if (tanima && dinleniyor) {
-      mesaj('Dinleme durduruluyor...');
-      tanima.stop();
+    /*
+     * Kullanıcı elle durdurduğunda yeniden başlatma
+     * zamanlayıcısını iptal et.
+     */
+    kullaniciDurdurdu = true;
+    zamanlayiciyiTemizle();
+
+    if (tanima) {
+      try {
+        tanima.stop();
+      } catch (hata) {
+        // Tanıma zaten durmuşsa hata oluşmasını engelle.
+      }
     }
+
+    dinleniyor = false;
+    baslat.disabled = false;
+    durdur.disabled = true;
+
+    mesaj('Dinleme durduruldu.');
   });
 
   mesaj('JavaScript çalışıyor. Mikrofon testine hazır.');
 })();
 </script>
+
 </body>
 </html>
-```
