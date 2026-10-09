@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Direk Ölçüm - Sesli Deneme</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 18px;
+      background: #f4f6f8;
+      color: #202124;
+    }
+
+    h2 { margin-top: 0; }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 14px 0 6px;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      padding: 13px;
+      font-size: 16px;
+      border-radius: 8px;
+    }
+
+    input, textarea {
+      border: 1px solid #bbb;
+      background: white;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 12px;
+      min-height: 48px;
+    }
+
+    #mikrofon { background: #1769aa; color: white; }
+    #durdur { background: #ddd; color: #222; }
+    #durum {
+      padding: 12px;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-top: 14px;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Direk Ölçüm — Sesli Deneme</h2>
+  <p>Ölçümleri tek seferde veya parça parça söyle. Kaydetmeden önce alanları kontrol et.</p>
+
+  <button type="button" id="mikrofon">🎤 Konuşmaya Başla</button>
+  <button type="button" id="durdur" disabled>Konuşmayı Durdur</button>
+
+  <label for="direk">Direk No</label>
+  <input id="direk" placeholder="Örn. 125">
+
+  <label for="sicaklik">Hava Sıcaklığı (°C)</label>
+  <input id="sicaklik" inputmode="decimal" placeholder="Örn. 17">
+
+  <label for="yagis">Yağış Durumu</label>
+  <input id="yagis" placeholder="Örn. Yok">
+
+  <label for="yukseklik">Yeni Yükseklik</label>
+  <input id="yukseklik" inputmode="decimal" placeholder="Örn. 5,32">
+
+  <label for="konusma">Tanınan konuşma</label>
+  <textarea id="konusma" rows="4"></textarea>
+
+  <div id="durum" role="status" aria-live="polite">Sayfa hazır.</div>
+
+<script>
+(function () {
+  const el = id => document.getElementById(id);
+  const baslat = el('mikrofon');
+  const durdur = el('durdur');
+  const durum = el('durum');
+
+  let tanima = null;
+  let dinleniyor = false;
+
+  function mesaj(yazi) {
+    durum.textContent = yazi;
+  }
+
+  function alanDoldur(id, deger) {
+    if (deger !== undefined && deger !== '') {
+      el(id).value = deger;
+    }
+  }
+
+  function sayilariAyir(metin) {
+    const t = metin.toLocaleLowerCase('tr-TR');
+    let m;
+
+    m = t.match(/direk(?:\s*(?:no|numarası))?\s*(?:numara\s*)?(\d+)/i);
+    if (m) alanDoldur('direk', m[1]);
+
+    m = t.match(/(?:hava\s*)?sıcaklık(?:\s*derece)?\s*(eksi\s*)?(\d+(?:[,.]\d+)?)/i);
+    if (m) {
+      alanDoldur('sicaklik', (m[1] ? '-' : '') + m[2].replace(',', '.'));
+    } else {
+      m = t.match(/(\d+(?:[,.]\d+)?)\s*derece/i);
+      if (m) alanDoldur('sicaklik', m[1].replace(',', '.'));
+    }
+
+    m = t.match(/yağış(?:\s*durumu)?\s*(yok|var|yağmur|yağmurlu|karlı|kar|sisli|0|1)/i);
+    if (m) alanDoldur('yagis', m[1]);
+
+    m = t.match(/(?:yeni\s*)?yükseklik\s*(\d+)(?:\s*virgül\s*(\d+)|\s*nokta\s*(\d+)|([,.]\d+))?/i);
+    if (m) {
+      let yuk = m[1];
+      if (m[2]) yuk += ',' + m[2];
+      else if (m[3]) yuk += ',' + m[3];
+      else if (m[4]) yuk += m[4].replace('.', ',');
+      alanDoldur('yukseklik', yuk);
+    }
+  }
+
+  baslat.addEventListener('click', function () {
+    mesaj('Butona basıldı. Tarayıcı desteği kontrol ediliyor...');
+
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      mesaj('Bu tarayıcı sesli konuşma tanımayı desteklemiyor. Güncel Android Chrome ile deneyin.');
+      return;
+    }
+
+    if (dinleniyor) {
+      mesaj('Mikrofon zaten açık.');
+      return;
+    }
+
+    try {
+      tanima = new SpeechRecognition();
+      tanima.lang = 'tr-TR';
+      tanima.continuous = true;
+      tanima.interimResults = true;
+
+      tanima.onstart = function () {
+        dinleniyor = true;
+        baslat.disabled = true;
+        durdur.disabled = false;
+        mesaj('Mikrofon açık. Ölçümleri söyleyebilirsiniz.');
+      };
+
+      tanima.onresult = function (event) {
+        let metin = '';
+
+        for (let i = 0; i < event.results.length; i++) {
+          metin += event.results[i][0].transcript + ' ';
+        }
+
+        metin = metin.trim();
+        el('konusma').value = metin;
+        sayilariAyir(metin);
+        mesaj('Konuşma algılanıyor. Alanları kontrol edin.');
+      };
+
+      tanima.onerror = function (event) {
+        mesaj('MİKROFON HATASI: ' + event.error);
+      };
+
+      tanima.onend = function () {
+        dinleniyor = false;
+        baslat.disabled = false;
+        durdur.disabled = true;
+      };
+
+      mesaj('Mikrofon başlatılıyor...');
+      tanima.start();
+
+    } catch (hata) {
+      dinleniyor = false;
+      baslat.disabled = false;
+      durdur.disabled = true;
+      mesaj('BAŞLATMA HATASI: ' + hata.message);
+    }
+  });
+
+  durdur.addEventListener('click', function () {
+    if (tanima && dinleniyor) {
+      mesaj('Dinleme durduruluyor...');
+      tanima.stop();
+    }
+  });
+
+  mesaj('JavaScript çalışıyor. Mikrofon testine hazır.');
+})();
+</script>
+
+</body>
+</html>
