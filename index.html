@@ -88,12 +88,12 @@
 
   let tanima = null;
   let dinleniyor = false;
-
-  // Her dinleme oturumunu ayırt eder.
   let oturumNo = 0;
 
-  // Sonuçların tekrar tekrar işlenmesini önler.
-  let sonIslenenMetin = '';
+  // Sonuçların her seferinde baştan işlenmesini önlemek için
+  // tanıma motorunun kesinleşmiş konuşma parçalarını izliyoruz.
+  let kesinParcalar = [];
+  let sonGeciciMetin = '';
 
   function mesaj(yazi) {
     durum.textContent = yazi;
@@ -101,9 +101,26 @@
 
   function alanDoldur(id, deger) {
     if (deger !== undefined && deger !== null && deger !== '') {
-      // Yeni değer varsa eskisinin üzerine yaz.
       el(id).value = deger;
     }
+  }
+
+  function norm(metin) {
+    return metin
+      .toLocaleLowerCase('tr-TR')
+      .replace(/[’']/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function sayiMetniniDuzelt(metin) {
+    return norm(metin)
+      .replace(/\bvirgül\b/g, ',')
+      .replace(/\bvirgul\b/g, ',')
+      .replace(/\bnokta\b/g, '.')
+      .replace(/\bçizgi\b/g, '-')
+      .replace(/\btire\b/g, '-')
+      .replace(/\s*([.,-])\s*/g, '$1');
   }
 
   function turkceSayiyiCoz(metin) {
@@ -117,7 +134,7 @@
       'seksen': 80, 'doksan': 90
     };
 
-    const kelimeler = metin.toLocaleLowerCase('tr-TR')
+    const kelimeler = norm(metin)
       .replace(/[.,!?;:]/g, ' ')
       .trim().split(/\s+/);
 
@@ -148,56 +165,83 @@
   }
 
   function direkNumarasiniBul(metin) {
-    const t = metin.toLocaleLowerCase('tr-TR');
+    const t = norm(metin);
 
+    // Direk, direkt ve ses tanımanın üretebildiği Dilek.
     const etiket = /\b(?:direk|direkt|dilek)\s*(?:no|numarası|numara)?\s*/i;
     const etiketli = t.match(etiket);
 
-    if (etiketli) {
-      const baslangic = etiketli.index + etiketli[0].length;
-      let bolum = t.slice(baslangic);
+    let bolum = '';
 
+    if (etiketli) {
+      bolum = t.slice(etiketli.index + etiketli[0].length);
       bolum = bolum.split(
         /\b(?:hava|sıcaklık|yağış|yükseklik|yeni)\b/i
       )[0].trim();
-
-      let m = bolum.match(
-        /^(\d+)\s*(?:-\s*|\btire\b\s*|\bçizgi\b\s*)(\d+)/i
-      );
-      if (m) return m[1] + '-' + m[2];
-
-      m = bolum.match(/^(.+?)\s+(?:tire|çizgi)\s+(.+)$/i);
-      if (m) {
-        const ana = turkceSayiyiCoz(m[1]);
-        const ek = turkceSayiyiCoz(m[2]);
-        if (ana !== null && ek !== null) return ana + '-' + ek;
-      }
-
-      m = bolum.match(/^(\d+)/);
-      if (m) return m[1];
-
-      const sayi = turkceSayiyiCoz(bolum);
-      if (sayi !== null) return String(sayi);
+    } else {
+      // Etiket yoksa bile 123-45 gibi numarayı bul.
+      const m = t.match(/\b\d+\s*(?:[-.]|tire|çizgi)\s*\d+\b/i);
+      if (m) bolum = m[0];
     }
 
-    const m = t.match(
-      /\b(\d+)\s*(?:-\s*|\btire\b\s*|\bçizgi\b\s*)(\d+)\b/i
-    );
+    if (!bolum) return null;
+
+    // Sayısal numara: 123-45, 123.45, 123 tire 45.
+    let m = bolum.match(/^(\d+)\s*(?:[-.]|\btire\b|\bçizgi\b)\s*(\d+)/i);
     if (m) return m[1] + '-' + m[2];
+
+    // Türkçe söylenen numara: yüz yirmi üç tire kırk beş.
+    m = bolum.match(/^(.+?)\s+(?:tire|çizgi)\s+(.+)$/i);
+    if (m) {
+      const ana = turkceSayiyiCoz(m[1]);
+      const ek = turkceSayiyiCoz(m[2]);
+      if (ana !== null && ek !== null) return ana + '-' + ek;
+    }
+
+    m = bolum.match(/^(\d+)/);
+    if (m) return m[1];
+
+    const sayi = turkceSayiyiCoz(bolum);
+    return sayi === null ? null : String(sayi);
+  }
+
+  function ondalikliDegeriBul(metin) {
+    const t = norm(metin);
+
+    // 5.95, 5,95, 5 nokta 95, 5 virgül 95
+    let m = t.match(
+      /(\d+)\s*(?:[.,]\s*(\d+)|(?:virgül|virgul|nokta)\s+(\d+))/i
+    );
+    if (m) {
+      return m[1] + ',' + (m[2] || m[3]);
+    }
+
+    // Konuşma tanıma "5 95" yazarsa ondalık kabul et.
+    m = t.match(/\b(\d)\s+(\d{2})\b/);
+    if (m) return m[1] + ',' + m[2];
+
+    // Tam sayı söylenmişse.
+    m = t.match(/\b(\d+)\b/);
+    if (m) return m[1];
 
     return null;
   }
 
   function sayilariAyir(metin) {
-    const t = metin.toLocaleLowerCase('tr-TR');
+    const t = norm(metin);
     let m;
 
+    // 1) Direk numarası
     const direkNo = direkNumarasiniBul(t);
-    if (direkNo) alanDoldur('direk', direkNo);
+    if (direkNo !== null) {
+      alanDoldur('direk', direkNo);
+    }
 
+    // 2) Sıcaklık
     m = t.match(
       /(?:hava\s*)?sıcaklık(?:\s*derece)?\s*(eksi\s*)?(\d+(?:[,.]\d+)?)/i
     );
+
     if (m) {
       alanDoldur(
         'sicaklik',
@@ -208,29 +252,60 @@
       if (m) alanDoldur('sicaklik', m[1].replace(',', '.'));
     }
 
+    // 3) Yağış: söylenen karşılığı koru.
     m = t.match(
-      /yağış(?:\s*durumu)?\s*(yok|var|yağmur|yağmurlu|karlı|kar|sisli|0|1)/i
-    );
-    if (m) alanDoldur('yagis', m[1]);
-
-    // 5.45, 5,45, 5 virgül 45 ve 5 nokta 45 biçimleri.
-    // Yükseklik ifadesinden sonra gelen yeni sayı değeri günceller.
-    m = t.match(
-      /(?:yeni\s*)?yükseklik\s*(?:değer[iı]\s*)?(\d+(?:[,.]\d+)?|\d+\s*(?:virgül|nokta)\s*\d+)/i
+      /yağış(?:\s*durumu)?\s*(yoktur|yok|yağmurlu|yağmur|yağışlı|var|karlı|kar|sisli|0|1)\b/i
     );
 
     if (m) {
-      let yuk = m[1]
-        .replace(/\s*(virgül|nokta)\s*/i, ',')
-        .replace('.', ',');
-      alanDoldur('yukseklik', yuk);
+      let yagis = m[1];
+      if (yagis === 'yoktur') yagis = 'yok';
+      alanDoldur('yagis', yagis);
+    }
+
+    // 4) Yükseklik: her "yükseklik" ifadesinden sonraki değeri bul.
+    // Birden fazla yükseklik söylenmişse sonuncusu kullanılacak.
+    const yukseklikEtiketi = /\b(?:yeni\s*)?yükseklik\b/gi;
+    let eslesme;
+    let sonYukseklik = null;
+
+    while ((eslesme = yukseklikEtiketi.exec(t)) !== null) {
+      const sonrakiBolum = t.slice(
+        eslesme.index + eslesme[0].length
+      );
+
+      // Bir sonraki alan etiketine kadar olan bölümü al.
+      const bolum = sonrakiBolum.split(
+        /\b(?:direk|direkt|dilek|hava|sıcaklık|yağış)\b/i
+      )[0].trim();
+
+      if (!bolum) continue;
+
+      const deger = ondalikliDegeriBul(bolum);
+      if (deger !== null) {
+        sonYukseklik = deger;
+      }
+    }
+
+    if (sonYukseklik !== null) {
+      alanDoldur('yukseklik', sonYukseklik);
     }
   }
 
   baslat.addEventListener('click', function () {
-    // Her yeni başlatmada eski konuşma metnini temizle.
+    if (dinleniyor) {
+      mesaj('Mikrofon zaten açık.');
+      return;
+    }
+
+    // Her yeni oturumda alttaki konuşma alanını temizle.
     el('konusma').value = '';
-    sonIslenenMetin = '';
+    kesinParcalar = [];
+    sonGeciciMetin = '';
+    oturumNo++;
+
+    const buOturum = oturumNo;
+
     mesaj('Tarayıcı desteği kontrol ediliyor...');
 
     const SpeechRecognition =
@@ -241,20 +316,15 @@
       return;
     }
 
-    if (dinleniyor) {
-      mesaj('Mikrofon zaten açık.');
-      return;
-    }
-
     try {
       tanima = new SpeechRecognition();
       tanima.lang = 'tr-TR';
       tanima.continuous = true;
       tanima.interimResults = true;
 
-      const buOturum = ++oturumNo;
-
       tanima.onstart = function () {
+        if (buOturum !== oturumNo) return;
+
         dinleniyor = true;
         baslat.disabled = true;
         durdur.disabled = false;
@@ -264,27 +334,44 @@
       tanima.onresult = function (event) {
         if (buOturum !== oturumNo) return;
 
-        let metin = '';
+        // Tarayıcının kesinleşmiş sonuçlarını sakla.
+        // Böylece aynı metin her olayda baştan eklenmez.
+        kesinParcalar = [];
 
-        // Konuşmanın tamamını alttaki alanda göster.
+        let geciciParcalar = [];
+
         for (let i = 0; i < event.results.length; i++) {
-          metin += event.results[i][0].transcript + ' ';
+          const sonuc = event.results[i];
+          const parca = sonuc[0].transcript.trim();
+
+          if (!parca) continue;
+
+          if (sonuc.isFinal) {
+            kesinParcalar.push(parca);
+          } else {
+            geciciParcalar.push(parca);
+          }
         }
 
-        metin = metin.trim();
-        el('konusma').value = metin;
+        const kesinMetin = kesinParcalar.join(' ').trim();
+        const geciciMetin = geciciParcalar.join(' ').trim();
+        const tumMetin = [kesinMetin, geciciMetin]
+          .filter(Boolean).join(' ').trim();
 
-        // Geçici sonuçlar değiştikçe alanları güncelle.
-        // Aynı metin tekrar geldiyse gereksiz işlem yapma.
-        if (metin !== sonIslenenMetin) {
-          sonIslenenMetin = metin;
-          sayilariAyir(metin);
+        el('konusma').value = tumMetin;
+
+        // Her sonuçta konuşmanın güncel tamamını analiz et.
+        // Alan değerleri yalnızca tanınan yeni değer varsa değişir.
+        if (tumMetin !== sonGeciciMetin) {
+          sonGeciciMetin = tumMetin;
+          sayilariAyir(tumMetin);
         }
 
         mesaj('Konuşma algılanıyor. Alanları kontrol edin.');
       };
 
       tanima.onerror = function (event) {
+        if (buOturum !== oturumNo) return;
         mesaj('MİKROFON HATASI: ' + event.error);
       };
 
