@@ -105,22 +105,30 @@
   }
 
   // Konuşma tanımanın farklı kelimelerle algıladığı ifadeleri düzelt.
-  function metniNormalizeEt(metin) {
-    return metin
-      .toLocaleLowerCase('tr-TR')
-      .replace(/\bdirekt\b/g, 'direk')
-      .replace(/\bdilek\b/g, 'direk')
+```javascript
+function metniNormalizeEt(metin) {
+  return metin
+    .toLocaleLowerCase('tr-TR')
+    .replace(/\bdirekt\b/g, 'direk')
+    .replace(/\bdilek\b/g, 'direk')
 
-      // DEZEKSMAN için alternatif konuşma tanımaları.
-      .replace(/\b(?:dex\s*man|dexman)\b/g, 'dezeksman')
-      .replace(/\b(?:tezeksman|tezeksman|dezeksman)\b/g, 'dezeksman')
-      .replace(/\b(?:dezek|dezeg|desek|dizek|deek|tezek)\b/g, 'dezeksman')
-      .replace(/\b(?:zigzag|zikzak|zig\s*zag)\b/g, 'dezeksman')
+    // DEZEKSMAN: iki kelimeli yanlış tanımalar
+    .replace(/\b(?:t|d|te|de|tx|dx|dex|deks|ezex|eze|deek|deeks|dexs|dix|desek|dizek|dezek|dezeg|tezek|tezeks|dezeks)\s*man\b/g, 'dezeksman')
 
-      .replace(/[’']/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+    // DEZEKSMAN: bitişik yanlış tanımalar
+    .replace(/\b(?:tezeksman|tezeksmen|teksman|teksmen|deksman|deksmen|deeksman|deekman|dexsman|dexman|dxman|txman|ezexman|desekman|dizekman|dezekman|dezegman|tezekman|tezegman|dezeksmen|dezeksman)\b/g, 'dezeksman')
+
+    // Kısa veya eksik algılanan ifadeler
+    .replace(/\b(?:dezek|dezeg|desek|dizek|deek|tezek|tezek|deks|teks|diks|tiks)\b/g, 'dezeksman')
+
+    // Zigzag ve zikzak alternatifleri
+    .replace(/\b(?:zigzag|zikzak|zigzak|ziksak|zig\s*zag|zik\s*zak|zig\s*zak|zik\s*zag)\b/g, 'dezeksman')
+
+    .replace(/[’']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+```
 
   function turkceSayiyiCoz(metin) {
     const birler = {
