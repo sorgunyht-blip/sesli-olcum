@@ -74,6 +74,9 @@
   <label for="yukseklik">Yeni Yükseklik</label>
   <input id="yukseklik" inputmode="decimal" placeholder="Örn. 5,45">
 
+  <label for="dezeksman">DEZEKSMAN</label>
+  <input id="dezeksman" inputmode="decimal" placeholder="Örn. 5,45">
+
   <label for="konusma">Tanınan konuşma</label>
   <textarea id="konusma" rows="4"></textarea>
 
@@ -101,13 +104,14 @@
     }
   }
 
-  // Ses tanımanın ürettiği "direkt" kelimesini "direk" yap.
-  // Bu düzeltme konuşma metnine ve alan ayrıştırmaya uygulanır.
   function metniNormalizeEt(metin) {
     return metin
       .toLocaleLowerCase('tr-TR')
       .replace(/\bdirekt\b/g, 'direk')
       .replace(/\bdilek\b/g, 'direk')
+      .replace(/\bdezeg\b/g, 'dezeksman')
+      .replace(/\bdezek\b/g, 'dezeksman')
+      .replace(/\bzig\s*zag\b/g, 'zigzag')
       .replace(/[’']/g, '')
       .replace(/\s+/g, ' ')
       .trim();
@@ -156,7 +160,8 @@
 
   function sonrakiEtiketeKadar(metin, baslangic) {
     const kalan = metin.slice(baslangic);
-    const etiket = /\b(?:direk|hava\s*sıcaklığı|sıcaklık|yağış(?:\s*durumu)?|yeni\s*yükseklik|yükseklik)\b/i;
+    const etiket =
+      /\b(?:direk|hava\s*sıcaklığı|sıcaklık|yağış(?:\s*durumu)?|yeni\s*yükseklik|yükseklik|dezeksman|zigzag)\b/i;
     const m = etiket.exec(kalan);
     return m ? kalan.slice(0, m.index).trim() : kalan.trim();
   }
@@ -173,7 +178,6 @@
         etiketli.index + etiketli[0].length
       );
 
-      // 125-7, 125.7, 125 tire 7, 125 T 7
       let m = bolum.match(
         /^(\d+)\s*(?:[-.]|tire|çizgi|t|te)\s*(\d+)/i
       );
@@ -183,7 +187,6 @@
         continue;
       }
 
-      // Türkçe sayı: yüz yirmi beş tire yedi
       m = bolum.match(/^(.+?)\s+(?:tire|çizgi)\s+(.+)$/i);
       if (m) {
         const ana = turkceSayiyiCoz(m[1]);
@@ -204,13 +207,11 @@
   function ondalikliDegeriBul(metin) {
     const t = metniNormalizeEt(metin);
 
-    // 5.95, 5,95, 5 nokta 95, 5 virgül 95
     let m = t.match(
       /\b(\d+)\s*(?:[.,]\s*(\d+)|(?:virgül|nokta)\s+(\d+))\b/i
     );
     if (m) return m[1] + ',' + (m[2] || m[3]);
 
-    // Ses tanıma "5 35" veya "5 3 5" yazarsa
     m = t.match(/\b(\d)\s+(\d{2})\b/);
     if (m) return m[1] + ',' + m[2];
 
@@ -219,6 +220,26 @@
 
     m = t.match(/\b(\d+)\b/);
     return m ? m[1] : null;
+  }
+
+  function etiketliSonOndalik(metin, etiketDeseni) {
+    const etiket = new RegExp(etiketDeseni, 'gi');
+    let eslesme;
+    let sonDeger = null;
+
+    while ((eslesme = etiket.exec(metin)) !== null) {
+      const bolum = sonrakiEtiketeKadar(
+        metin,
+        eslesme.index + eslesme[0].length
+      );
+      const deger = ondalikliDegeriBul(bolum);
+
+      if (deger !== null) {
+        sonDeger = deger;
+      }
+    }
+
+    return sonDeger;
   }
 
   function tumAlanlariGuncelle(metin) {
@@ -240,7 +261,9 @@
       m = bolum.match(/^(eksi\s*)?(\d+(?:[,.]\d+)?)/i);
       if (m) sonSicaklik = (m[1] ? '-' : '') + m[2].replace(',', '.');
     }
-    if (sonSicaklik !== null) alanDoldur('sicaklik', sonSicaklik);
+    if (sonSicaklik !== null) {
+      alanDoldur('sicaklik', sonSicaklik.replace('.', ','));
+    }
 
     // Yağış: son söylenen geçerli durum.
     const yagisEtiketi = /\byağış(?:\s*durumu)?\s*/gi;
@@ -257,16 +280,22 @@
     if (sonYagis !== null) alanDoldur('yagis', sonYagis);
 
     // Yükseklik: son söylenen geçerli değer.
-    const yukseklikEtiketi = /\b(?:yeni\s*)?yükseklik\s*/gi;
-    let h;
-    let sonYukseklik = null;
-
-    while ((h = yukseklikEtiketi.exec(t)) !== null) {
-      const bolum = sonrakiEtiketeKadar(t, h.index + h[0].length);
-      const deger = ondalikliDegeriBul(bolum);
-      if (deger !== null) sonYukseklik = deger;
+    const sonYukseklik = etiketliSonOndalik(
+      t,
+      '\\b(?:yeni\\s*)?yükseklik\\s*'
+    );
+    if (sonYukseklik !== null) {
+      alanDoldur('yukseklik', sonYukseklik);
     }
-    if (sonYukseklik !== null) alanDoldur('yukseklik', sonYukseklik);
+
+    // DEZEKSMAN: dezek, dezeg, dezeksman ve zigzag eş anlamlı komutları.
+    const sonDezeksman = etiketliSonOndalik(
+      t,
+      '\\b(?:dezek|dezeg|dezeksman|zigzag)\\s*'
+    );
+    if (sonDezeksman !== null) {
+      alanDoldur('dezeksman', sonDezeksman);
+    }
   }
 
   baslat.addEventListener('click', function () {
@@ -314,7 +343,6 @@
 
         metin = metin.trim();
 
-        // Görüntülenen metinde de "direkt" yerine "direk" göster.
         const duzeltilmisMetin = metin
           .replace(/\bdirekt\b/gi, 'direk')
           .replace(/\bdilek\b/gi, 'direk');
