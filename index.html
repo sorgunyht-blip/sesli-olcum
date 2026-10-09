@@ -7,7 +7,6 @@
   <title>Direk Ölçüm - Sesli Deneme</title>
   <style>
     * { box-sizing: border-box; }
-
     body {
       font-family: Arial, sans-serif;
       max-width: 600px;
@@ -16,27 +15,22 @@
       background: #f4f6f8;
       color: #202124;
     }
-
     h2 { margin-top: 0; }
-
     label {
       display: block;
       font-weight: bold;
       margin: 14px 0 6px;
     }
-
     input, textarea, button {
       width: 100%;
       padding: 13px;
       font-size: 16px;
       border-radius: 8px;
     }
-
     input, textarea {
       border: 1px solid #bbb;
       background: white;
     }
-
     button {
       border: 0;
       cursor: pointer;
@@ -44,10 +38,8 @@
       margin-top: 12px;
       min-height: 48px;
     }
-
     #mikrofon { background: #1769aa; color: white; }
     #durdur { background: #ddd; color: #222; }
-
     #durum {
       padding: 12px;
       background: white;
@@ -57,7 +49,6 @@
       overflow-wrap: anywhere;
       white-space: pre-wrap;
     }
-
     button:disabled {
       opacity: .55;
       cursor: not-allowed;
@@ -65,7 +56,6 @@
   </style>
 </head>
 <body>
-
   <h2>Direk Ölçüm — Sesli Deneme</h2>
   <p>Ölçümleri tek seferde veya parça parça söyle. Kaydetmeden önce alanları kontrol et.</p>
 
@@ -73,7 +63,7 @@
   <button type="button" id="durdur" disabled>Konuşmayı Durdur</button>
 
   <label for="direk">Direk No</label>
-  <input id="direk" placeholder="Örn. 228-5">
+  <input id="direk" placeholder="Örn. 125-5">
 
   <label for="sicaklik">Hava Sıcaklığı (°C)</label>
   <input id="sicaklik" inputmode="decimal" placeholder="Örn. 17">
@@ -82,7 +72,7 @@
   <input id="yagis" placeholder="Örn. Yok">
 
   <label for="yukseklik">Yeni Yükseklik</label>
-  <input id="yukseklik" inputmode="decimal" placeholder="Örn. 5,32">
+  <input id="yukseklik" inputmode="decimal" placeholder="Örn. 5,45">
 
   <label for="konusma">Tanınan konuşma</label>
   <textarea id="konusma" rows="4"></textarea>
@@ -104,18 +94,16 @@
   }
 
   function alanDoldur(id, deger) {
-    if (deger !== undefined && deger !== '') {
+    if (deger !== undefined && deger !== null && deger !== '') {
       el(id).value = deger;
     }
   }
 
-  // Konuşmada geçen Türkçe sayı sözcüklerini rakama çevirir.
   function turkceSayiyiCoz(metin) {
     const birler = {
       'sıfır': 0, 'bir': 1, 'iki': 2, 'üç': 3, 'dört': 4,
       'beş': 5, 'altı': 6, 'yedi': 7, 'sekiz': 8, 'dokuz': 9
     };
-
     const onlar = {
       'on': 10, 'yirmi': 20, 'otuz': 30, 'kırk': 40,
       'elli': 50, 'altmış': 60, 'yetmiş': 70,
@@ -124,8 +112,7 @@
 
     const kelimeler = metin.toLocaleLowerCase('tr-TR')
       .replace(/[.,!?;:]/g, ' ')
-      .trim()
-      .split(/\s+/);
+      .trim().split(/\s+/);
 
     let toplam = 0;
     let mevcut = 0;
@@ -153,56 +140,42 @@
     return bulundu ? toplam + mevcut : null;
   }
 
-  // "228 tire 5", "228-5" ve "iki yüz yirmi sekiz tire beş"
-  // gibi direk numaralarını işler.
   function direkNumarasiniBul(metin) {
     const t = metin.toLocaleLowerCase('tr-TR');
 
-    const etiketli = t.match(
-      /direk(?:\s*(?:no|numarası))?\s*(?:numara\s*)?(.+?)(?=\s*(?:hava|sıcaklık|yağış|yükseklik)\b|$)/i
-    );
+    // "Direk", "Direkt" ve "Dilek" gibi ses tanıma hatalarını kabul et.
+    const etiket = /\b(?:direk|direkt|dilek)\s*(?:no|numarası|numara)?\s*/i;
+    const etiketli = t.match(etiket);
 
     if (etiketli) {
-      const bolum = etiketli[1].trim();
+      const baslangic = etiketli.index + etiketli[0].length;
+      let bolum = t.slice(baslangic);
 
-      // Rakamlarla yazılmış numara: 228-5, 245 tire 34, 228 5
-      let m = bolum.match(
-        /^(\d+)\s*(?:-\s*|\btire\b\s*|\bçizgi\b\s*)(\d+)\b/i
-      );
+      // Sonraki ölçüm alanına gelince direk numarası bölümünü bitir.
+      bolum = bolum.split(/\b(?:hava|sıcaklık|yağış|yükseklik|yeni)\b/i)[0].trim();
 
+      // 125-5, 125 tire 5 veya 125 çizgi 5
+      let m = bolum.match(/^(\d+)\s*(?:-\s*|\btire\b\s*|\bçizgi\b\s*)(\d+)/i);
       if (m) return m[1] + '-' + m[2];
 
-      m = bolum.match(/^(\d+)-(\d+)$/);
-      if (m) return m[1] + '-' + m[2];
-
-      // Sadece ilk numara söylendiyse
-      m = bolum.match(/^(\d+)\b/);
-      if (m) return m[1];
-
-      // Türkçe söylenen ana numara ve tireden sonraki bölüm
-      const tireSozcugu = bolum.match(
-        /^(.+?)\s+(?:tire|çizgi)\s+(.+)$/
-      );
-
-      if (tireSozcugu) {
-        const ana = turkceSayiyiCoz(tireSozcugu[1]);
-        const ek = turkceSayiyiCoz(tireSozcugu[2]);
-
-        if (ana !== null && ek !== null) {
-          return ana + '-' + ek;
-        }
+      // "yüz yirmi beş tire beş" gibi Türkçe sayı söylemi
+      m = bolum.match(/^(.+?)\s+(?:tire|çizgi)\s+(.+)$/i);
+      if (m) {
+        const ana = turkceSayiyiCoz(m[1]);
+        const ek = turkceSayiyiCoz(m[2]);
+        if (ana !== null && ek !== null) return ana + '-' + ek;
       }
 
-      // Tire söylenmeden yalnızca Türkçe sayı söylendiyse
+      // Yalnızca 125 gibi numara söylendiyse
+      m = bolum.match(/^(\d+)/);
+      if (m) return m[1];
+
       const sayi = turkceSayiyiCoz(bolum);
       if (sayi !== null) return String(sayi);
     }
 
-    // Etiket olmadan da "228 tire 5" biçimini yakala.
-    let m = t.match(
-      /\b(\d+)\s*(?:-\s*|\btire\b\s*|\bçizgi\b\s*)(\d+)\b/i
-    );
-
+    // Etiket olmadan da "125 tire 5" biçimini tanı.
+    const m = t.match(/\b(\d+)\s*(?:-\s*|\btire\b\s*|\bçizgi\b\s*)(\d+)\b/i);
     if (m) return m[1] + '-' + m[2];
 
     return null;
@@ -218,12 +191,8 @@
     m = t.match(
       /(?:hava\s*)?sıcaklık(?:\s*derece)?\s*(eksi\s*)?(\d+(?:[,.]\d+)?)/i
     );
-
     if (m) {
-      alanDoldur(
-        'sicaklik',
-        (m[1] ? '-' : '') + m[2].replace(',', '.')
-      );
+      alanDoldur('sicaklik', (m[1] ? '-' : '') + m[2].replace(',', '.'));
     } else {
       m = t.match(/(\d+(?:[,.]\d+)?)\s*derece/i);
       if (m) alanDoldur('sicaklik', m[1].replace(',', '.'));
@@ -232,32 +201,28 @@
     m = t.match(
       /yağış(?:\s*durumu)?\s*(yok|var|yağmur|yağmurlu|karlı|kar|sisli|0|1)/i
     );
-
     if (m) alanDoldur('yagis', m[1]);
 
     m = t.match(
       /(?:yeni\s*)?yükseklik\s*(\d+)(?:\s*virgül\s*(\d+)|\s*nokta\s*(\d+)|([,.]\d+))?/i
     );
-
     if (m) {
       let yuk = m[1];
-
       if (m[2]) yuk += ',' + m[2];
       else if (m[3]) yuk += ',' + m[3];
       else if (m[4]) yuk += m[4].replace('.', ',');
-
       alanDoldur('yukseklik', yuk);
     }
   }
 
   baslat.addEventListener('click', function () {
-    mesaj('Butona basıldı. Tarayıcı desteği kontrol ediliyor...');
+    mesaj('Tarayıcı desteği kontrol ediliyor...');
 
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      mesaj('Bu tarayıcı sesli konuşma tanımayı desteklemiyor. Güncel Android Chrome ile deneyin.');
+      mesaj('Bu tarayıcı sesli konuşma tanımayı desteklemiyor. Güncel Chrome ile deneyin.');
       return;
     }
 
@@ -304,7 +269,6 @@
 
       mesaj('Mikrofon başlatılıyor...');
       tanima.start();
-
     } catch (hata) {
       dinleniyor = false;
       baslat.disabled = false;
@@ -323,7 +287,6 @@
   mesaj('JavaScript çalışıyor. Mikrofon testine hazır.');
 })();
 </script>
-
 </body>
 </html>
 ```
